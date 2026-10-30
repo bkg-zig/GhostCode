@@ -6,6 +6,7 @@ packages:
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - '@prisma/engines'
+  - '@scarf/scarf'
   - bcrypt
   - esbuild
   - prisma

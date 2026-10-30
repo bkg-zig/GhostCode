@@ -140,7 +140,7 @@ export class CavesService {
     return {
       path: file.path,
       name: file.path.split('/').pop(),
-      content: file.blob.content.toString('utf-8'),
+      content: Buffer.from(file.blob.content as Uint8Array).toString('utf-8'),
       size: file.size,
       updatedAt: file.updatedAt,
     };

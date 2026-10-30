@@ -30,7 +30,6 @@ COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/dashboard/package.json ./apps/dashboard/package.json
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps/dashboard/.next ./apps/dashboard/.next
-COPY --from=builder /app/apps/dashboard/public ./apps/dashboard/public
 RUN corepack enable && pnpm install --prod --frozen-lockfile
 
 EXPOSE 5900

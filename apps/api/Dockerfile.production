@@ -16,6 +16,10 @@ RUN corepack enable && pnpm install --frozen-lockfile
 # Copy source
 COPY apps/api ./apps/api
 
+# DATABASE_URL is required by Prisma 7 config at generate time (no DB connection needed)
+ARG DATABASE_URL=postgresql://ghost:ghost@localhost:5432/ghost
+ENV DATABASE_URL=$DATABASE_URL
+
 # Generate Prisma Client
 RUN pnpm run db:generate
 
