@@ -1,0 +1,15 @@
+[package]
+name = "helper-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Local helper-core primitives for Ghost Coding Cave"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+regex = "1.11"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros"] }
+

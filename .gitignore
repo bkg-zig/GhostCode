@@ -1,0 +1,51 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+
+# Next.js
+.next/
+out/
+build
+dist/
+
+# Production
+*.tsbuildinfo
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.api.pid
+.dashboard.pid
+
+# Local env files
+.env
+.env*.local
+
+# Turbo
+.turbo
+
+# Vercel
+.vercel
+
+# Prisma
+prisma/migrations
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Rust build artifacts
+rust-core/target/

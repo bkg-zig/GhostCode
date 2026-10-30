@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - packages/*
+  - services/*
+
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - '@prisma/engines'
+  - bcrypt
+  - esbuild
+  - prisma
+  - unrs-resolver

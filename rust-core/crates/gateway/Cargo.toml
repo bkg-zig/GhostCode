@@ -1,0 +1,27 @@
+[package]
+name = "ghost-gateway"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Axum gateway for Ghost Coding Cave rust-core"
+
+[dependencies]
+anyhow = "1.0"
+axum = { version = "0.7", features = ["json", "ws"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+futures = "0.3"
+dotenvy = "0.15"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.37", features = ["rt-multi-thread", "macros", "signal"] }
+tower = "0.5"
+tower-http = { version = "0.5", features = ["trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# Internal adapters
+semantic-adapter = { path = "../semantic-adapter" }
+storage-adapter = { path = "../storage-adapter" }
+
+# Helper core integration
+helper-core = { workspace = true }

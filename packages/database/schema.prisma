@@ -1,0 +1,393 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+// ============================
+// Users, Projects & API Keys
+// ============================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(USER)
+  mainCaveId   String?  @map("main_cave_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastLogin    DateTime? @map("last_login")
+
+  apiKeys      ApiKey[]
+  projects     Project[]
+  versions     Version[]
+  auditEvents  AuditEvent[]
+  chatMessages ChatMessage[]
+  tokenUsages  TokenUsage[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  USER
+  DEV
+  ADMIN
+}
+
+model ApiKey {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  keyHash        String   @unique @map("key_hash")
+  isActive       Boolean  @default(true) @map("is_active")
+  tokenBalance   Int      @default(1000) @map("token_balance")
+  allowedModels  Json?    @map("allowed_models")
+  allowedActions Json?    @map("allowed_actions")
+  tokenLimit     Int?     @map("token_limit")
+  expiresAt      DateTime? @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenUsages  TokenUsage[]
+  auditEvents  AuditEvent[]
+
+  @@map("api_keys")
+}
+
+model Project {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  name             String
+  quotaCpu         Int      @default(500) @map("quota_cpu")
+  quotaRam         Int      @default(512) @map("quota_ram")
+  maxCaves         Int      @default(3) @map("max_caves")
+  allowedLanguages String[] @map("allowed_languages")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  caves            Cave[]
+  tokenUsages      TokenUsage[]
+  embeddingsDocs   EmbeddingDoc[]
+  chatMessages     ChatMessage[]
+
+  @@map("projects")
+}
+
+// ============================
+// Caves, Files & Versions
+// ============================
+
+model Cave {
+  id              String       @id @default(cuid())
+  projectId       String       @map("project_id")
+  name            String
+  language        CaveLanguage
+  ramMb           Int          @default(512) @map("ram_mb")
+  cpuMillicores   Int          @default(500) @map("cpu_millicores")
+  tokensPerRun    Int          @default(50) @map("tokens_per_run")
+  status          CaveStatus   @default(ACTIVE)
+  lastRunAt       DateTime?    @map("last_run_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  files           File[]
+  versions        Version[]
+  tokenUsages     TokenUsage[]
+  embeddingsDocs  EmbeddingDoc[]
+  embeddingsSymbols EmbeddingSymbol[]
+  chatMessages    ChatMessage[]
+
+  @@map("caves")
+}
+
+enum CaveLanguage {
+  PYTHON
+  NODE
+  RUST
+}
+
+enum CaveStatus {
+  ACTIVE
+  STOPPED
+  ARCHIVED
+}
+
+model File {
+  id         String   @id @default(cuid())
+  caveId     String   @map("cave_id")
+  path       String
+  contentSha String   @map("content_sha")
+  size       Int
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  cave Cave     @relation(fields: [caveId], references: [id], onDelete: Cascade)
+  blob FileBlob @relation(fields: [contentSha], references: [sha])
+
+  @@unique([caveId, path])
+  @@map("files")
+}
+
+model FileBlob {
+  sha     String @id
+  content Bytes
+
+  files File[]
+
+  @@map("file_blobs")
+}
+
+model Version {
+  id            String   @id @default(cuid())
+  caveId        String   @map("cave_id")
+  timestamp     DateTime @default(now())
+  authorUserId  String   @map("author_user_id")
+  summary       String?
+  changeset     Json
+  executionLogs String?  @map("execution_logs") @db.Text
+  usedTokens    Int      @default(0) @map("used_tokens")
+
+  cave   Cave @relation(fields: [caveId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorUserId], references: [id])
+
+  @@map("versions")
+}
+
+// ============================
+// Token Economy & Audit
+// ============================
+
+model TokenUsage {
+  id         String         @id @default(cuid())
+  timestamp  DateTime       @default(now())
+  userId     String         @map("user_id")
+  projectId  String         @map("project_id")
+  caveId     String?        @map("cave_id")
+  apiKeyId   String         @map("api_key_id")
+  agentId    String?        @map("agent_id")
+  modelId    String?        @map("model_id")
+  action     TokenAction
+  direction  TokenDirection
+  tokens     Int
+
+  user    User     @relation(fields: [userId], references: [id])
+  project Project  @relation(fields: [projectId], references: [id])
+  cave    Cave?    @relation(fields: [caveId], references: [id])
+  apiKey  ApiKey   @relation(fields: [apiKeyId], references: [id])
+  agent   Agent?   @relation(fields: [agentId], references: [id])
+  model   Model?   @relation(fields: [modelId], references: [id])
+
+  @@index([timestamp])
+  @@index([userId])
+  @@index([projectId])
+  @@map("token_usage")
+}
+
+enum TokenAction {
+  RUN
+  CHAT
+  VERSION
+  TOOL
+  INSTALL
+  TERMINAL
+}
+
+enum TokenDirection {
+  DEBIT
+  CREDIT
+}
+
+model TokenUsageAgg {
+  id          String   @id @default(cuid())
+  bucketStart DateTime @map("bucket_start")
+  userId      String?  @map("user_id")
+  projectId   String?  @map("project_id")
+  caveId      String?  @map("cave_id")
+  modelId     String?  @map("model_id")
+  sumTokens   Int      @map("sum_tokens")
+
+  @@unique([bucketStart, userId, projectId, caveId, modelId])
+  @@map("token_usage_agg")
+}
+
+model AuditEvent {
+  id            String        @id @default(cuid())
+  createdAt     DateTime      @default(now()) @map("created_at")
+  actorUserId   String?       @map("actor_user_id")
+  actorApiKeyId String?       @map("actor_api_key_id")
+  entityType    EntityType    @map("entity_type")
+  entityId      String        @map("entity_id")
+  action        AuditAction
+  payload       Json?
+  correlationId String?       @map("correlation_id")
+
+  actorUser   User?   @relation(fields: [actorUserId], references: [id])
+  actorApiKey ApiKey? @relation(fields: [actorApiKeyId], references: [id])
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_events")
+}
+
+enum EntityType {
+  USER
+  PROJECT
+  CAVE
+  FILE
+  VERSION
+  MODEL
+  AGENT
+  POLICY
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  START
+  STOP
+  ASSIGN
+  IMPORT
+  REVERT
+  LIMIT_EXCEEDED
+  DENY
+}
+
+// ============================
+// Models, Agents & Instances
+// ============================
+
+model Model {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  provider  ModelProvider
+  sourceRef String      @map("source_ref")
+  revision  String?
+  status    ModelStatus @default(AVAILABLE)
+  meta      Json?
+
+  instances   ModelInstance[]
+  tokenUsages TokenUsage[]
+
+  @@map("models")
+}
+
+enum ModelProvider {
+  OLLAMA
+  HUGGINGFACE
+  LOCAL
+}
+
+enum ModelStatus {
+  AVAILABLE
+  PULLING
+  FAILED
+  DISABLED
+}
+
+model Agent {
+  id            String      @id @default(cuid())
+  name          String      @unique
+  status        AgentStatus @default(ACTIVE)
+  maxModels     Int         @default(5) @map("max_models")
+  lastHeartbeat DateTime?   @map("last_heartbeat")
+  metrics       Json?
+
+  instances   ModelInstance[]
+  tokenUsages TokenUsage[]
+
+  @@map("agents")
+}
+
+enum AgentStatus {
+  ACTIVE
+  STOPPED
+  UNREACHABLE
+}
+
+model ModelInstance {
+  id          String    @id @default(cuid())
+  modelId     String    @map("model_id")
+  agentId     String    @map("agent_id")
+  endpoint    String
+  status      String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  terminatedAt DateTime? @map("terminated_at")
+
+  model Model @relation(fields: [modelId], references: [id])
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@map("model_instances")
+}
+
+// ============================
+// Vectorization (pgvector)
+// ============================
+
+model EmbeddingDoc {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  caveId    String   @map("cave_id")
+  source    EmbeddingSource
+  path      String?
+  refId     String?  @map("ref_id")
+  chunkIdx  Int      @map("chunk_idx")
+  text      String   @db.Text
+  embedding Unsupported("vector(1536)")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cave    Cave    @relation(fields: [caveId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, caveId])
+  @@map("embeddings_docs")
+}
+
+enum EmbeddingSource {
+  FILE
+  VERSION
+  CHAT
+}
+
+model EmbeddingSymbol {
+  id        String   @id @default(cuid())
+  caveId    String   @map("cave_id")
+  symbol    String
+  filePath  String   @map("file_path")
+  span      String?
+  language  String
+  embedding Unsupported("vector(1536)")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cave Cave @relation(fields: [caveId], references: [id], onDelete: Cascade)
+
+  @@index([caveId])
+  @@map("embeddings_symbols")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  caveId    String?  @map("cave_id")
+  userId    String   @map("user_id")
+  role      ChatRole
+  content   String   @db.Text
+  embedding Unsupported("vector(1536)")?
+  tokens    Int      @default(0)
+  timestamp DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cave    Cave?   @relation(fields: [caveId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, caveId])
+  @@map("chat_messages")
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}

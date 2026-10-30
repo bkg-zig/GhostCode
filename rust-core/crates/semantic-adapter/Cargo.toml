@@ -1,0 +1,17 @@
+[package]
+name = "semantic-adapter"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Semantic analysis adapter for Ghost Coding Cave rust-core"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Helper core integration
+helper-core = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
