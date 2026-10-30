@@ -50,10 +50,12 @@ Die v0.2a Implementierung ist **vollständig strukturiert** und bereit für Inst
 
 ## 🔧 Installation
 
-### 1. Dependencies installieren
+### 1. pnpm aktivieren und Dependencies installieren
 
 ```bash
 cd /home/wind/code/ghost-coding-cave/v0-2a
+corepack enable
+corepack prepare pnpm@10.12.1 --activate
 pnpm install
 ```
 
